@@ -7,6 +7,7 @@ import xml.sax
 from collections import defaultdict
 from datetime import date, timedelta
 from urllib.request import urlopen
+from xml.sax import make_parser
 
 from odoo import fields, models
 
@@ -18,32 +19,6 @@ class ResCurrencyRateProviderECB(models.Model):
         selection_add=[("ECB", "European Central Bank")],
         ondelete={"ECB": "set default"},
     )
-
-    def _get_close_time(self):
-        """According to official page "Euro foreign exchange reference rates"
-        on the ECB Website, today's rate data will only be available
-        from 16:00 CET.
-        https://www.ecb.europa.eu/stats/policy_and_exchange_rates/
-        euro_reference_exchange_rates/html/index.en.html
-
-        It is necessary to define a blocking time to avoid the following use case:
-        - Cron record call webservice today BEFORE time x.
-        - The webservice response will not give an error but it will not return data
-        for today.
-        - The value of last_successful_run will be updated with today's date.
-        - The value of next_run will be updated to tomorrow.
-
-        You would never get the value for today and tomorrow the same thing would happen.
-
-        CET Time is UTC+2 in summer and UTC+1 in winter:
-        (https://en.wikipedia.org/wiki/Central_European_Time).
-        Block time must be set to UTC+0
-        Set time to 15, which is UTC hour that corresponds to
-        16:00 CET in winter and 17:00 CET in summer => ok with the ECB publication time
-        """
-        if self.service == "ECB":
-            return 15
-        return super()._get_close_time()
 
     def _get_supported_currencies(self):
         self.ensure_one()
@@ -120,7 +95,9 @@ class ResCurrencyRateProviderECB(models.Model):
 
         handler = EcbRatesHandler(currencies, date_from, date_to)
         with urlopen(url) as response:
-            xml.sax.parse(response, handler)
+            parser = make_parser()
+            parser.setContentHandler(handler)
+            parser.parse(response)
         content = handler.content
         if invert_calculation:
             for k in content.keys():
