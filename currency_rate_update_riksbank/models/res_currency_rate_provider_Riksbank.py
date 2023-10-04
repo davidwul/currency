@@ -10,6 +10,7 @@ from datetime import timedelta
 
 import dateutil.parser
 import logging
+_logger = logging.getLogger(__name__)
 
 from odoo import _, fields, models
 from odoo.exceptions import UserError
@@ -23,7 +24,6 @@ class ResCurrencyRateProviderRiksbank(models.Model):
         selection_add=[("Riksbank", "www.riksbank.se")],
         ondelete={"Riksbank": "set default"},
     )
-    logger = logging.getLogger(__name__)
 
     def _get_supported_currencies(self):
         return [
@@ -44,6 +44,7 @@ class ResCurrencyRateProviderRiksbank(models.Model):
         invert_calculation = False
         if base_currency != "SEK":
             invert_calculation = True
+            base_currency = 'SEK'
             if base_currency not in currencies:
                 currencies.append(base_currency)
         content = defaultdict(dict)
@@ -62,6 +63,7 @@ class ResCurrencyRateProviderRiksbank(models.Model):
                     "from": str(since),
                     "to": str(min(until, date_to)),
                 }
+                _logger.info("retrieving rates at" + url)
                 data = json.loads(self._riksbank_provider_retrieve(url))
                 if "error" in data and data["error"]:
                     raise UserError(
@@ -88,7 +90,6 @@ class ResCurrencyRateProviderRiksbank(models.Model):
         self.ensure_one()
 
         with self._riksbank_provider_urlopen(url) as response:
-            self._logger.debug(" retrieving rates at"+url)
             content = response.read().decode('utf-8')
         return content
 
