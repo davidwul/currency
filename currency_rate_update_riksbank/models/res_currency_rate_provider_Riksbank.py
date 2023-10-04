@@ -9,9 +9,11 @@ from collections import defaultdict
 from datetime import timedelta
 
 import dateutil.parser
+import logging
 
 from odoo import _, fields, models
 from odoo.exceptions import UserError
+
 
 
 class ResCurrencyRateProviderRiksbank(models.Model):
@@ -21,6 +23,7 @@ class ResCurrencyRateProviderRiksbank(models.Model):
         selection_add=[("Riksbank", "www.riksbank.se")],
         ondelete={"Riksbank": "set default"},
     )
+    logger = logging.getLogger(__name__)
 
     def _get_supported_currencies(self):
         return [
@@ -85,6 +88,7 @@ class ResCurrencyRateProviderRiksbank(models.Model):
         self.ensure_one()
 
         with self._riksbank_provider_urlopen(url) as response:
+            self._logger.debug(" retrieving rates at"+url)
             content = response.read().decode('utf-8')
         return content
 
